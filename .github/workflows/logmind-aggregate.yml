@@ -21,19 +21,14 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.base.ref }}
           fetch-depth: 0
-          # PAT lets the eventual fallback PR trigger downstream workflows
-          # (clud-bug-review, check-decisions, check-links). PRs opened with
-          # the default GITHUB_TOKEN do NOT trigger pull_request events, so
-          # the aggregator PR would be permanently unmergeable under this
-          # repo's required_status_checks rule. See AGENTS.md.
-          token: ${{ secrets.LOGMIND_BOT_PAT }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: Install logmind
-        run: pip install 'logmind==0.1.3'
+        run: pip install 'logmind==0.1.4'
 
       - name: Aggregate merged-branch decisions
         env:
@@ -44,8 +39,20 @@ jobs:
 
       - name: Commit and push (with PR fallback under branch protection)
         env:
-          # Same PAT as checkout so the fallback PR gets a non-Actions identity.
-          GH_TOKEN: ${{ secrets.LOGMIND_BOT_PAT }}
+          # If LOGMIND_BOT_PAT is set, the aggregator PR opens under that
+          # identity and downstream workflows (required checks, etc.) fire
+          # normally. Without it, the PR opens via GITHUB_TOKEN, which
+          # GitHub deliberately blocks from triggering other workflows
+          # (anti-recursion safety).
+          #
+          # If your base ref has required status checks (clud-bug, etc.),
+          # set LOGMIND_BOT_PAT to a fine-grained PAT scoped to this repo
+          # with Contents:write + Pull-requests:write. The aggregator PR
+          # will then be mergeable. Without it, the PR opens but its
+          # required checks will never run, and the PR will sit
+          # unmergeable. The workflow emits a ::warning:: in that case.
+          GH_TOKEN: ${{ secrets.LOGMIND_BOT_PAT || secrets.GITHUB_TOKEN }}
+          HAS_BOT_PAT: ${{ secrets.LOGMIND_BOT_PAT != '' }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
@@ -77,6 +84,9 @@ jobs:
                   --body "Automated decision aggregation. Direct push to \`${BASE_REF}\` was blocked by branch protection."; then
               echo "::warning::Aggregation PR could not be created. Check 'Settings → Actions → General → Allow GitHub Actions to create and approve pull requests'."
               exit 0
+            fi
+            if [ "${HAS_BOT_PAT}" != "true" ]; then
+              echo "::warning::Aggregator PR opened via GITHUB_TOKEN. Required status checks on '${BASE_REF}' will NOT trigger on this PR (GitHub anti-recursion safety). Set the LOGMIND_BOT_PAT repo secret to a fine-grained PAT (Contents:write + Pull-requests:write on this repo) so the PR can satisfy required checks. See the workflow file's env comment for details."
             fi
             echo "Opened aggregation PR for #${PR_NUMBER}."
             exit 0
