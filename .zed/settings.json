@@ -1,0 +1,10 @@
+{
+  "logmind": {
+    "enabled": true,
+    "description": "This project uses logmind for decision tracking. See docs/decisions.md for recent decisions.",
+    "context_files": [
+      "docs/decisions.md",
+      "docs/file-structure.md"
+    ]
+  }
+}
