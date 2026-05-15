@@ -51,15 +51,18 @@ else
   RULESET_JSON="$(curl -fsSL "$URL")" || die "failed to fetch $URL"
 fi
 
-# Patch required_approving_review_count if --human-review.
+# Patch the pull_request rule if --human-review:
+# - required_approving_review_count: 0 -> 1
+# - require_last_push_approval: false -> true (last pusher's commits need a non-pusher
+#   approval; only meaningful when an approval is actually required)
 if [[ "$HUMAN_REVIEW" == "true" ]]; then
-  info "Patching required_approving_review_count = 1 (human review required)"
-  # Precondition: a pull_request rule must exist, otherwise the patch silently no-ops
-  # and we'd ship a ruleset that doesn't actually require a human approval.
+  info "Patching pull_request rule for human review (count=1, last_push_approval=true)"
+  # Precondition: a pull_request rule must exist, otherwise the patch silently no-ops.
   echo "$RULESET_JSON" | jq -e '.rules | any(.type == "pull_request")' >/dev/null \
     || die "--human-review requested but ruleset has no pull_request rule"
   RULESET_JSON="$(echo "$RULESET_JSON" | jq '
     (.rules[] | select(.type == "pull_request") | .parameters.required_approving_review_count) = 1
+    | (.rules[] | select(.type == "pull_request") | .parameters.require_last_push_approval) = true
   ')"
 fi
 

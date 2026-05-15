@@ -52,10 +52,17 @@ Requires the [`gh`](https://cli.github.com) CLI authenticated against the target
 > 💡 Pairs nicely with [**clud-bug**](https://github.com/thrillmot/clud-bug): a one-command (`npx clud-bug init`) install of a Claude PR-review GitHub Action that auto-discovers project-aware review skills from [skills.sh](https://skills.sh) and resolves its own review threads when issues are fixed — which is exactly what the `required_review_thread_resolution` gate in this ruleset is designed to lean on. This repo itself uses clud-bug; see PR #2 / #3 for live review examples.
 
 Both variants are otherwise identical: PR required, force push and deletion blocked,
-linear history, squash-only merges, dismiss stale reviews, last-push approval, all
-threads must resolve. Status checks are **not** part of the shipped ruleset (GitHub's
-API rejects an empty list) — add a `Require status checks to pass` rule with your CI
-workflow names after install.
+linear history, squash-only merges, dismiss stale reviews, all threads must resolve.
+Status checks are **not** part of the shipped ruleset (GitHub's API rejects an empty
+list) — add a `Require status checks to pass` rule with your CI workflow names after
+install.
+
+`require_last_push_approval` defaults to `false`. It would deadlock merges in 0-approval
+mode (`require_last_push_approval: true` + `required_approving_review_count: 0` means
+"the last push must be approved by a non-pusher, but no one is required to approve" —
+GitHub blocks merge forever). `--human-review` flips both fields together (count → 1,
+last-push-approval → true) so the human approver requirement and the non-pusher
+requirement stay consistent.
 
 ### Human approval flag
 
