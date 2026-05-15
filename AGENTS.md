@@ -7,7 +7,7 @@ files like `CLAUDE.md` or `.cursorrules` are stubs that point here so the
 guidance lives in one place.
 
 <!-- logmind-start -->
-<!-- logmind-block-version: v2-slim -->
+<!-- logmind-block-version: v3-slim -->
 ## Decision logging — see the `logmind` skill
 
 This project uses [logmind](https://logmind.dev). The full procedure
@@ -22,10 +22,11 @@ npx skills add https://github.com/thrillmot/agent-skills --skill logmind
 
 ### Project-specific paths
 
+- **[docs/timeline.md](docs/timeline.md)** — auto-generated chronological overview across all branches; start here.
 - Recent decisions on the default branch: **[docs/decisions.md](docs/decisions.md)**
 - Per-branch decisions (in-flight feature work): **docs/decisions-branches/**
 - Archived decisions: **[docs/decisions-archive.md](docs/decisions-archive.md)**
-- Project tree (auto-regenerated on every log): **[docs/file-structure.md](docs/file-structure.md)**
+- Project tree (regenerated on main-branch logs + post-PR-merge): **[docs/file-structure.md](docs/file-structure.md)**
 
 ### Quick reference
 
@@ -79,22 +80,21 @@ After cloning, contributors should:
 
 1. **Install logmind** locally (CLI tool used to log decisions):
    ```bash
-   brew install thrillmot/logmind/logmind   # or: pipx install logmind
-   logmind install-hook                     # .git/hooks/pre-commit
+   pipx install logmind   # or: brew install thrillmot/logmind/logmind
+   logmind install-hook   # .git/hooks/pre-commit
    ```
    The same enforcement runs on every PR via `.github/workflows/check-decisions.yml`
    (shipped by logmind itself), so skipping the local hook only delays the failure —
    it still blocks merge.
 
-2. **Set repo secret `LOGMIND_BOT_PAT`** (one-time, per fork/clone of this repo):
-   The `logmind-aggregate` workflow opens a PR with the aggregated
-   `docs/decisions.md` update on every merge. PRs opened with the default
-   `GITHUB_TOKEN` don't trigger downstream `pull_request` workflows
-   ([known GitHub design](https://github.com/peter-evans/create-pull-request/blob/main/docs/concepts-guidelines.md#triggering-further-workflow-runs)),
-   so the aggregator PR would never get its required checks and would be
-   permanently unmergeable under this repo's ruleset.
-
-   Create a **fine-grained PAT** scoped to this repo with
-   `contents: write` + `pull_requests: write`, and add it as the repo secret
-   **`LOGMIND_BOT_PAT`**. Without it, the aggregator step fails clearly
-   rather than silently.
+2. **When CI flags `docs/timeline.md` as stale,** regenerate it locally and push:
+   ```bash
+   logmind timeline --write docs/timeline.md
+   git add docs/timeline.md
+   git commit -m "regen: docs/timeline.md"
+   git push
+   ```
+   `docs/timeline.md` is a derived file — auto-regenerated chronological overview
+   across all branches. The `check-derived-docs` workflow (`.github/workflows/regen-timeline.yml`)
+   fails fast when it's stale. Running `logmind timeline --write` locally before
+   pushing avoids the red CI run.
