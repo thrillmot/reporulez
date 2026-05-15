@@ -54,10 +54,18 @@ jobs:
           fi
 
       - name: Open or update aggregator PR
+        id: aggregator_pr
         if: steps.changes.outputs.no_changes != 'true'
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # IMPORTANT: must be a PAT or GitHub App installation token, NOT
+          # secrets.GITHUB_TOKEN. PRs opened with the default GITHUB_TOKEN
+          # do not trigger downstream workflows (including required status
+          # checks), which would make this PR permanently unmergeable under
+          # the repo's ruleset. Setup: create a fine-grained PAT scoped to
+          # this repo with contents:write + pull_requests:write, store as
+          # repo secret LOGMIND_BOT_PAT.
+          token: ${{ secrets.LOGMIND_BOT_PAT }}
           branch: logmind-aggregate
           base: ${{ github.event.pull_request.base.ref }}
           commit-message: "logmind: aggregate decisions from #${{ github.event.pull_request.number }}"
@@ -73,3 +81,10 @@ jobs:
           author: "logmind-bot <logmind@users.noreply.github.com>"
           committer: "logmind-bot <logmind@users.noreply.github.com>"
           delete-branch: true
+
+      - name: Enable auto-merge on the aggregator PR
+        if: steps.aggregator_pr.outputs.pull-request-number
+        env:
+          GH_TOKEN: ${{ secrets.LOGMIND_BOT_PAT }}
+          PR_NUM: ${{ steps.aggregator_pr.outputs.pull-request-number }}
+        run: gh pr merge "$PR_NUM" --auto --squash

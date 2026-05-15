@@ -20,3 +20,13 @@
 - Each merge of a feature PR now opens/updates an auto-generated PR on branch logmind-aggregate. Concurrency group prevents non-fast-forward races. logmind-decision-check workflow gates every PR on having a decision logged when >20 lines changed.
 
 ---
+## 2026-05-15 03:17 - Use LOGMIND_BOT_PAT for aggregator workflow; make logmind-check always run with conditional no-op for aggregator branch
+
+**Reasoning:** peter-evans/create-pull-request invoked with secrets.GITHUB_TOKEN doesn't trigger downstream pull_request workflows (GitHub design). With required status checks planned, the auto-generated aggregator PR would be permanently unmergeable. Per Clud Bug re-review of fc81a0e.
+
+**Alternatives considered:** Add github-actions[bot] to ruleset bypass_actors — weakens repo security, Skip required status checks entirely — defeats the enforcement goal
+
+**Implications:**
+- Repo secret LOGMIND_BOT_PAT must be set (fine-grained PAT with contents:write + pull_requests:write). logmind-check.yml restructured so it always runs; the aggregator-branch shortcut is now a step-level conditional that reports success rather than skipped. Decision-doc check now counts lines added (min 3) instead of files touched, closing the whitespace-bypass.
+
+---

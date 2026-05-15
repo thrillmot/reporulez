@@ -1,13 +1,12 @@
 name: logmind decision check
 
-# Gates every PR on having at least one decision logged when the diff exceeds
-# the threshold. Mirrors the `logmind check-decisions` pre-commit hook
-# (`logmind install-hook`) for contributors who haven't installed it locally.
+# Gates every PR on having at least one decision logged when the diff
+# exceeds the threshold. Mirrors the `logmind check-decisions` pre-commit
+# hook (`logmind install-hook`) for contributors who haven't installed it.
 #
-# Skip conditions:
-#   - PR head is the aggregator branch itself (logmind-aggregate)
-#   - PR is from a fork (no contributor key configured)
-#   - All changed files are inside docs/decisions* (the decision log itself)
+# Always runs (no job-level skip) so that required-status-checks evaluation
+# sees a `success` instead of a `skipped` (which under default semantics
+# blocks merge).
 
 on:
   pull_request:
@@ -18,24 +17,31 @@ permissions:
 
 jobs:
   logmind-decision-check:
-    if: github.event.pull_request.head.ref != 'logmind-aggregate'
     runs-on: ubuntu-latest
     steps:
+      - name: Pass automatically for the aggregator branch
+        if: github.event.pull_request.head.ref == 'logmind-aggregate'
+        run: |
+          echo "Aggregator PR — no human/agent code change, decision log not required."
+          exit 0
+
       - uses: actions/checkout@v6
+        if: github.event.pull_request.head.ref != 'logmind-aggregate'
         with:
           fetch-depth: 0
 
       - name: Require a decision log for non-trivial PRs
+        if: github.event.pull_request.head.ref != 'logmind-aggregate'
         env:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           THRESHOLD: "20"
+          MIN_DECISION_LINES_ADDED: "3"
         run: |
           set -euo pipefail
           BASE="origin/${BASE_REF}"
-          git fetch origin "${BASE_REF}" --depth=1 >/dev/null 2>&1 || true
 
-          # Count added+deleted lines outside the decisions docs themselves.
+          # Lines changed (added + deleted) outside the decisions docs.
           DIFF_LINES=$(git diff --numstat "$BASE...$HEAD_SHA" \
             -- . \
                ':!docs/decisions.md' \
@@ -43,16 +49,20 @@ jobs:
                ':!docs/decisions-branches/**' \
             | awk '$1 != "-" { add += $1 } $2 != "-" { del += $2 } END { print add + del + 0 }')
 
-          DECISIONS_TOUCHED=$(git diff --name-only "$BASE...$HEAD_SHA" \
+          # Lines ADDED (not just files touched) inside any decision doc.
+          # Counting additions instead of file-touched closes the trivial-
+          # whitespace-edit bypass.
+          DECISION_LINES_ADDED=$(git diff --numstat "$BASE...$HEAD_SHA" \
             -- 'docs/decisions.md' 'docs/decisions-archive.md' 'docs/decisions-branches/**' \
-            | wc -l | tr -d ' ')
+            | awk '$1 != "-" { add += $1 } END { print add + 0 }')
 
           echo "Lines changed (excluding decision docs): $DIFF_LINES"
-          echo "Decision-doc files touched: $DECISIONS_TOUCHED"
-          echo "Threshold: $THRESHOLD"
+          echo "Lines added inside decision docs:        $DECISION_LINES_ADDED"
+          echo "Threshold:                               $THRESHOLD"
+          echo "Required decision lines added:           $MIN_DECISION_LINES_ADDED"
 
-          if [ "$DIFF_LINES" -gt "$THRESHOLD" ] && [ "$DECISIONS_TOUCHED" -eq 0 ]; then
-            echo "::error::PR changes $DIFF_LINES lines (threshold $THRESHOLD) without logging a decision."
+          if [ "$DIFF_LINES" -gt "$THRESHOLD" ] && [ "$DECISION_LINES_ADDED" -lt "$MIN_DECISION_LINES_ADDED" ]; then
+            echo "::error::PR changes $DIFF_LINES lines (threshold $THRESHOLD) but only $DECISION_LINES_ADDED line(s) added to decision docs (need $MIN_DECISION_LINES_ADDED+)."
             echo "Run on your feature branch:"
             echo "  logmind log \"<summary>\" -r \"<reasoning>\""
             echo "Then push the resulting commit. See AGENTS.md for the full decision-logging requirement."

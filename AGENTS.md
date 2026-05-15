@@ -22,6 +22,16 @@ logmind install-hook   # installs .git/hooks/pre-commit in this clone
 
 The same check runs on every PR via `.github/workflows/logmind-check.yml`, so missing the local hook only delays the failure — it still blocks merge.
 
+### Required repo secret: `LOGMIND_BOT_PAT`
+
+The aggregator workflow (`.github/workflows/logmind-aggregate.yml`) opens a PR with the aggregated `docs/decisions.md` update on every merge. PRs opened with the default `GITHUB_TOKEN` do **not** trigger downstream `pull_request` workflows ([known GitHub design](https://github.com/peter-evans/create-pull-request/blob/main/docs/concepts-guidelines.md#triggering-further-workflow-runs)), so the aggregator PR would never get its required checks and would be permanently unmergeable under the repo's ruleset.
+
+To fix this, create a **fine-grained PAT** scoped to this repo with:
+- `contents: write`
+- `pull_requests: write`
+
+Add it as the repo secret **`LOGMIND_BOT_PAT`**. Without it, the aggregator step fails clearly rather than silently.
+
 ### REQUIREMENT: AI Agents MUST Log All Decisions
 
 **You MUST log a decision whenever you:**
