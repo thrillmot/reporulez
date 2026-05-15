@@ -7,96 +7,93 @@ files like `CLAUDE.md` or `.cursorrules` are stubs that point here so the
 guidance lives in one place.
 
 <!-- logmind-start -->
-## Decision Logging (logmind)
+<!-- logmind-block-version: v1-slim -->
+## Decision logging — see the `logmind` skill
 
-**IMPORTANT:** This project uses [logmind](https://github.com/thrillmot/logmind) for decision tracking.
+This project uses [logmind](https://logmind.dev). The full procedure
+(when to log, how to log, what counts as a decision, branch routing) lives
+in the **`logmind` agent skill** which your runtime should auto-load.
 
-### Local enforcement: install the pre-commit hook
-
-Every contributor (human and AI) should install the pre-commit hook so commits with significant changes fail locally if no decision has been logged:
-
-```bash
-pipx install logmind   # or: brew install thrillmot/logmind/logmind
-logmind install-hook   # installs .git/hooks/pre-commit in this clone
-```
-
-The same check runs on every PR via `.github/workflows/logmind-check.yml`, so missing the local hook only delays the failure — it still blocks merge.
-
-### Required repo secret: `LOGMIND_BOT_PAT`
-
-The aggregator workflow (`.github/workflows/logmind-aggregate.yml`) opens a PR with the aggregated `docs/decisions.md` update on every merge. PRs opened with the default `GITHUB_TOKEN` do **not** trigger downstream `pull_request` workflows ([known GitHub design](https://github.com/peter-evans/create-pull-request/blob/main/docs/concepts-guidelines.md#triggering-further-workflow-runs)), so the aggregator PR would never get its required checks and would be permanently unmergeable under the repo's ruleset.
-
-To fix this, create a **fine-grained PAT** scoped to this repo with:
-- `contents: write`
-- `pull_requests: write`
-
-Add it as the repo secret **`LOGMIND_BOT_PAT`**. Without it, the aggregator step fails clearly rather than silently.
-
-### REQUIREMENT: AI Agents MUST Log All Decisions
-
-**You MUST log a decision whenever you:**
-- Make architectural or design choices
-- Choose between alternative approaches
-- Write significant new code (>20 lines)
-- Modify existing functionality
-- Add dependencies or libraries
-- Make security or performance decisions
-
-**BEFORE writing code, ask yourself: "Should this be logged?" If yes, log it IMMEDIATELY.**
-
-### How to Log Decisions
-
-**Python API:**
-```python
-from logmind import log
-
-log("Decision summary",
-    reasoning="Why this approach",
-    alternatives=["Option A", "Option B"],
-    implications=["Impact 1", "Impact 2"])
-```
-
-**CLI:**
-```bash
-logmind log "Use PostgreSQL for database" \
-  -r "Need ACID compliance" \
-  -a "MongoDB" -a "SQLite" \
-  -i "Need connection pooling"
-```
-
-### Branch-aware logging
-
-When you log on a feature branch, the entry is written to
-`docs/decisions-branches/<branch>.md` rather than `docs/decisions.md`. On PR
-merge, a workflow appends a one-line summary linking the PR + the per-branch
-file to `docs/decisions.md`. Run `logmind show` and `logmind search` as usual
-— they read both.
-
-### Viewing Past Decisions
+If the skill isn't loaded for some reason, install it once globally:
 
 ```bash
-logmind show                  # recent decisions on current branch
-logmind show --all            # include archive
-logmind search "postgres"     # search across both files
+npx skills add -g thrillmot/logmind-skill
 ```
 
-### Required Reading
+### Project-specific paths
 
-Before starting work in this repo, read:
-- **[docs/decisions.md](docs/decisions.md)** — 20 most recent decisions on the default branch
-- **[docs/file-structure.md](docs/file-structure.md)** — current project structure
+- Recent decisions on the default branch: **[docs/decisions.md](docs/decisions.md)**
+- Per-branch decisions (in-flight feature work): **docs/decisions-branches/**
+- Archived decisions: **[docs/decisions-archive.md](docs/decisions-archive.md)**
+- Project tree (auto-regenerated on every log): **[docs/file-structure.md](docs/file-structure.md)**
 
-### Additional Reference
+### Quick reference
 
-- **[docs/decisions-archive.md](docs/decisions-archive.md)** — historical decisions (searchable reference)
-- **docs/decisions-branches/** — per-branch decision logs written during feature work
-- **README.md** at the repo root — project overview, if present
+```bash
+logmind log "decision summary" -r "why" -a "alternative" -i "implication"
+logmind show               # recent decisions on the current branch
+logmind search "keyword"   # full-text across recent + archive
+```
+
+**Use `logmind log` for the commit, not `git add` + `git commit`.** The
+`log` command writes the decision file, stages everything in the working
+tree, and creates the commit in one step. Bypassing it means the
+decision either isn't logged or gets logged in a separate commit.
+
+**Read `docs/decisions.md` and the matching `docs/decisions-branches/<branch>.md` (if any) before starting any non-trivial task.** The team has likely already decided things you'd otherwise re-litigate.
 <!-- logmind-end -->
 
 ## Project Overview
 
-<!-- Replace with a short description of what this project does. -->
+`reporulez` ships opinionated GitHub **repository rulesets** for AI-driven
+development. The installer (`bin/apply.sh`) tunes target-repo settings
+(auto-merge, squash-only, delete-on-merge) and POSTs a ruleset that requires
+PRs, blocks force pushes and default-branch deletions, enforces thread
+resolution, and (in the `copilot` variant) wires up GitHub Copilot
+auto-review. Two variants — `copilot` and `external` — plus a
+`--human-review` flag. See `README.md` for the full design.
+
+This repo itself uses the `external` variant: clud-bug is the AI reviewer,
+logmind enforces decision logging, and CI gates every PR on `clud-bug-review`,
+`logmind-decision-check`, and `check-links` (all currently passing).
 
 ## Development Commands
 
-<!-- Common commands a contributor needs (build, test, lint, run). -->
+```bash
+# Validate ruleset JSON
+jq . rulesets/*.json
+
+# Syntax-check the installer
+bash -n bin/apply.sh
+
+# Apply rulesets to a target repo (dogfood / end-to-end test)
+./bin/apply.sh <owner/repo> [copilot|external] [--human-review]
+```
+
+There is no test suite. End-to-end validation is "apply against a throwaway
+repo and inspect via the GitHub UI / API."
+
+## Contributor Setup
+
+After cloning, contributors should:
+
+1. **Install logmind** locally (CLI tool used to log decisions):
+   ```bash
+   brew install thrillmot/logmind/logmind   # or: pipx install logmind
+   logmind install-hook                     # .git/hooks/pre-commit
+   ```
+   The same enforcement runs on every PR via `.github/workflows/logmind-check.yml`,
+   so skipping the local hook only delays the failure — it still blocks merge.
+
+2. **Set repo secret `LOGMIND_BOT_PAT`** (one-time, per fork/clone of this repo):
+   The `logmind-aggregate` workflow opens a PR with the aggregated
+   `docs/decisions.md` update on every merge. PRs opened with the default
+   `GITHUB_TOKEN` don't trigger downstream `pull_request` workflows
+   ([known GitHub design](https://github.com/peter-evans/create-pull-request/blob/main/docs/concepts-guidelines.md#triggering-further-workflow-runs)),
+   so the aggregator PR would never get its required checks and would be
+   permanently unmergeable under this repo's ruleset.
+
+   Create a **fine-grained PAT** scoped to this repo with
+   `contents: write` + `pull_requests: write`, and add it as the repo secret
+   **`LOGMIND_BOT_PAT`**. Without it, the aggregator step fails clearly
+   rather than silently.

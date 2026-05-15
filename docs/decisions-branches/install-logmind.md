@@ -30,3 +30,13 @@
 - Repo secret LOGMIND_BOT_PAT must be set (fine-grained PAT with contents:write + pull_requests:write). logmind-check.yml restructured so it always runs; the aggregator-branch shortcut is now a step-level conditional that reports success rather than skipped. Decision-doc check now counts lines added (min 3) instead of files touched, closing the whitespace-bypass.
 
 ---
+## 2026-05-15 03:18 - Refactor AGENTS.md: project-specific sections outside logmind-managed block
+
+**Reasoning:** logmind 0.1.1's template refresh writes its own block between <!-- logmind-start --> / <!-- logmind-end --> markers and will overwrite any edits inside on every subsequent log. Project-specific content (PAT secret requirement, contributor setup, project overview) must live OUTSIDE those markers to survive future logmind refreshes.
+
+**Alternatives considered:** Edit content inside the logmind block — would be overwritten on next refresh, Disable logmind block updates — defeats automatic template improvements
+
+**Implications:**
+- AGENTS.md now has three project-specific sections: Project Overview, Development Commands, Contributor Setup. The Contributor Setup section documents LOGMIND_BOT_PAT (required for aggregator PRs to trigger their own workflows) and the logmind install-hook step.
+
+---
