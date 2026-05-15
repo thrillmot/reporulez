@@ -1,0 +1,18 @@
+# CODEOWNERS — assign default reviewers for paths in this repo.
+#
+# Drop this file at one of:
+#   .github/CODEOWNERS   (recommended)
+#   docs/CODEOWNERS
+#   CODEOWNERS           (repo root)
+#
+# Syntax: <path pattern>  <owner1> <owner2> ...
+# Owners can be @user, @org/team, or an email. Last matching pattern wins.
+#
+# Examples:
+#   *                          @your-org/maintainers
+#   /infra/                    @your-org/platform
+#   *.md                       @your-org/docs
+#   /apps/web/                 @your-org/frontend @some-user
+
+# Default — replace with your team:
+# *                            @your-org/maintainers
