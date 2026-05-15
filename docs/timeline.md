@@ -15,6 +15,7 @@ PR's CI run, so this file is always coherent with current `main`.
 
 ## 2026-05
 
+- **2026-05-15** — Upgrade logmind 0.1.4 → 0.2.0 (derived-file architecture) *(upgrade-logmind-020)* — [decisions-branches/upgrade-logmind-020.md](decisions-branches/upgrade-logmind-020.md)
 - **2026-05-15** — Initialize logmind decision tracking *(upgrade-logmind-020)* — [decisions-branches/upgrade-logmind-020.md](decisions-branches/upgrade-logmind-020.md)
 - **2026-05-15** — Upgrade logmind 0.1.3 → 0.1.4 *(upgrade-logmind-014)* — [decisions-branches/upgrade-logmind-014.md](decisions-branches/upgrade-logmind-014.md)
 - **2026-05-15** — Initialize logmind decision tracking *(upgrade-logmind-014)* — [decisions-branches/upgrade-logmind-014.md](decisions-branches/upgrade-logmind-014.md)
