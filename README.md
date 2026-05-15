@@ -65,12 +65,15 @@ The installer applies two things:
 
 1. **A repository ruleset** (`reporulez-default`) targeting the default branch:
    - PR required, with last-push approval, thread resolution, stale-review dismissal
-   - Required status checks (strict mode; you fill in the check names afterward)
    - Block default-branch deletion
    - Block force pushes
    - Require linear history
    - Allowed merge methods: `squash`
    - (copilot variant only) Copilot code review on every push, not on drafts
+
+   The ruleset deliberately **does not include a `required_status_checks` rule**.
+   GitHub's API rejects that rule with an empty list, and we can't know your CI
+   workflow names — you add the rule yourself after install (see step 1 below).
 2. **Repository settings** that rulesets can't control:
    - Auto-merge enabled
    - Squash-only merging
@@ -81,8 +84,8 @@ The script is idempotent — running it twice updates the existing ruleset inste
 
 ## After install — manual steps
 
-1. **Add CI status check names** to the ruleset. The installer leaves
-   `required_status_checks` empty because we can't know your workflow names.
+1. **Add a `Require status checks to pass` rule** with your CI workflow names.
+   The ruleset ships without this rule because GitHub's API rejects an empty list.
    Settings → Rules → Rulesets → `reporulez-default` → "Require status checks to pass".
 2. **Drop in templates** if you want:
    ```sh
