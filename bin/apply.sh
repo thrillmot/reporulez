@@ -51,15 +51,18 @@ else
   RULESET_JSON="$(curl -fsSL "$URL")" || die "failed to fetch $URL"
 fi
 
-# Patch required_approving_review_count if --human-review.
+# Patch the pull_request rule if --human-review:
+# - required_approving_review_count: 0 -> 1
+# - require_last_push_approval: false -> true (last pusher's commits need a non-pusher
+#   approval; only meaningful when an approval is actually required)
 if [[ "$HUMAN_REVIEW" == "true" ]]; then
-  info "Patching required_approving_review_count = 1 (human review required)"
-  # Precondition: a pull_request rule must exist, otherwise the patch silently no-ops
-  # and we'd ship a ruleset that doesn't actually require a human approval.
+  info "Patching pull_request rule for human review (count=1, last_push_approval=true)"
+  # Precondition: a pull_request rule must exist, otherwise the patch silently no-ops.
   echo "$RULESET_JSON" | jq -e '.rules | any(.type == "pull_request")' >/dev/null \
     || die "--human-review requested but ruleset has no pull_request rule"
   RULESET_JSON="$(echo "$RULESET_JSON" | jq '
     (.rules[] | select(.type == "pull_request") | .parameters.required_approving_review_count) = 1
+    | (.rules[] | select(.type == "pull_request") | .parameters.require_last_push_approval) = true
   ')"
 fi
 
@@ -72,10 +75,13 @@ gh api --method PATCH "repos/$REPO" --silent \
   -F allow_rebase_merge=false \
   -F delete_branch_on_merge=true \
   -f squash_merge_commit_title=PR_TITLE \
-  -f squash_merge_commit_message=PR_BODY
+  -f squash_merge_commit_message=PR_BODY \
+  || die "failed to PATCH repo settings on $REPO (free private repos can't auto-merge or delete-on-merge — make the repo public or upgrade to GitHub Pro)"
 
 # 2. Apply ruleset. If one with the same name exists, PATCH it. Otherwise POST.
-EXISTING_ID="$(gh api --paginate "repos/$REPO/rulesets" \
+RULESETS_JSON="$(gh api --paginate "repos/$REPO/rulesets")" \
+  || die "failed to list existing rulesets on $REPO"
+EXISTING_ID="$(echo "$RULESETS_JSON" \
   | jq -r --arg name "$RULESET_NAME" '.[] | select(.name == $name) | .id' \
   | head -n1)"
 
@@ -85,10 +91,12 @@ echo "$RULESET_JSON" > "$TMP_JSON"
 
 if [[ -n "$EXISTING_ID" ]]; then
   info "Updating existing ruleset id=$EXISTING_ID"
-  gh api --method PUT "repos/$REPO/rulesets/$EXISTING_ID" --input "$TMP_JSON" --silent
+  gh api --method PUT "repos/$REPO/rulesets/$EXISTING_ID" --input "$TMP_JSON" --silent \
+    || die "failed to update ruleset $EXISTING_ID on $REPO"
 else
   info "Creating new ruleset"
-  gh api --method POST "repos/$REPO/rulesets" --input "$TMP_JSON" --silent
+  gh api --method POST "repos/$REPO/rulesets" --input "$TMP_JSON" --silent \
+    || die "failed to create ruleset on $REPO (rulesets require a public repo or GitHub Pro for private repos)"
 fi
 
 # 3. Follow-up checklist (cannot be done safely or automatically).
@@ -97,8 +105,9 @@ cat >&2 <<EOF
 OK. Ruleset '$RULESET_NAME' applied to $REPO (variant: $VARIANT, human review: $HUMAN_REVIEW).
 
 Next steps you should do manually:
-  1. Add your CI check names to the ruleset's required_status_checks via
+  1. Add a 'Require status checks to pass' rule with your CI workflow names via
      Settings -> Rules -> Rulesets -> '$RULESET_NAME' -> Require status checks to pass.
+     (The ruleset ships without this rule because GitHub's API rejects an empty list.)
   2. (Optional) Drop in templates/CODEOWNERS and templates/pull_request_template.md.
 EOF
 

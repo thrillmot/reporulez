@@ -14,11 +14,12 @@ required, squash-only merges, stale reviews dismissed on push, last-push approva
 and that CI checks pass. The `copilot` variant adds GitHub Copilot auto-review (advisory
 comments) so threads get created on every PR. The `external` variant assumes you've
 installed a non-Copilot AI reviewer App that does the same — without one, the
-thread-resolution gate has nothing to gate on. Status checks: the ruleset includes a
-`required_status_checks` rule but ships it with an **empty list**, because we can't know
-your CI workflow names — you have to add them after install. Until you do (and until your
-AI reviewer is installed for the `external` variant), the structural rules above are the
-only merge gates, and an empty PR can be self-merged.
+thread-resolution gate has nothing to gate on. Status checks: the ruleset deliberately
+**does not include a `required_status_checks` rule** (GitHub's API rejects that rule
+with an empty list, and we can't know your CI workflow names). Add it yourself after
+install via the GitHub UI. Until you do (and until your AI reviewer is installed for the
+`external` variant), the structural rules above are the only merge gates, and an empty
+PR can be self-merged.
 
 The `--human-review` flag layers on a required human approval if you want a person in the
 loop as well.
@@ -46,11 +47,22 @@ Requires the [`gh`](https://cli.github.com) CLI authenticated against the target
 | Variant | Copilot auto-review | Use when |
 |---|---|---|
 | `copilot` (default) | enabled via the `copilot_code_review` ruleset rule | You want GitHub's built-in reviewer to comment on every PR. |
-| `external` | not included | You've installed a non-Copilot AI reviewer GitHub App that already comments on every PR. |
+| `external` | not included | You've installed a non-Copilot AI reviewer GitHub App that already comments on every PR — e.g. [**clud-bug**](https://github.com/thrillmot/clud-bug) (Claude-powered, project-aware, one-command install), CodeRabbit, Cursor, or Anthropic's Claude Code Review App. |
+
+> 💡 Pairs nicely with [**clud-bug**](https://github.com/thrillmot/clud-bug): a one-command (`npx clud-bug init`) install of a Claude PR-review GitHub Action that auto-discovers project-aware review skills from [skills.sh](https://skills.sh) and resolves its own review threads when issues are fixed — which is exactly what the `required_review_thread_resolution` gate in this ruleset is designed to lean on. This repo itself uses clud-bug; see PR #2 / #3 for live review examples.
 
 Both variants are otherwise identical: PR required, force push and deletion blocked,
-linear history, squash-only merges, dismiss stale reviews, last-push approval, all
-threads must resolve, status checks must pass (with strict / branch-up-to-date enforced).
+linear history, squash-only merges, dismiss stale reviews, all threads must resolve.
+Status checks are **not** part of the shipped ruleset (GitHub's API rejects an empty
+list) — add a `Require status checks to pass` rule with your CI workflow names after
+install.
+
+`require_last_push_approval` defaults to `false`. It would deadlock merges in 0-approval
+mode (`require_last_push_approval: true` + `required_approving_review_count: 0` means
+"the last push must be approved by a non-pusher, but no one is required to approve" —
+GitHub blocks merge forever). `--human-review` flips both fields together (count → 1,
+last-push-approval → true) so the human approver requirement and the non-pusher
+requirement stay consistent.
 
 ### Human approval flag
 
@@ -65,12 +77,15 @@ The installer applies two things:
 
 1. **A repository ruleset** (`reporulez-default`) targeting the default branch:
    - PR required, with last-push approval, thread resolution, stale-review dismissal
-   - Required status checks (strict mode; you fill in the check names afterward)
    - Block default-branch deletion
    - Block force pushes
    - Require linear history
    - Allowed merge methods: `squash`
    - (copilot variant only) Copilot code review on every push, not on drafts
+
+   The ruleset deliberately **does not include a `required_status_checks` rule**.
+   GitHub's API rejects that rule with an empty list, and we can't know your CI
+   workflow names — you add the rule yourself after install (see step 1 below).
 2. **Repository settings** that rulesets can't control:
    - Auto-merge enabled
    - Squash-only merging
@@ -81,8 +96,8 @@ The script is idempotent — running it twice updates the existing ruleset inste
 
 ## After install — manual steps
 
-1. **Add CI status check names** to the ruleset. The installer leaves
-   `required_status_checks` empty because we can't know your workflow names.
+1. **Add a `Require status checks to pass` rule** with your CI workflow names.
+   The ruleset ships without this rule because GitHub's API rejects an empty list.
    Settings → Rules → Rulesets → `reporulez-default` → "Require status checks to pass".
 2. **Drop in templates** if you want:
    ```sh
