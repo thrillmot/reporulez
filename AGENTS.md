@@ -9,7 +9,18 @@ guidance lives in one place.
 <!-- logmind-start -->
 ## Decision Logging (logmind)
 
-**IMPORTANT:** This project uses [logmind](https://github.com/logmind/logmind) for decision tracking.
+**IMPORTANT:** This project uses [logmind](https://github.com/thrillmot/logmind) for decision tracking.
+
+### Local enforcement: install the pre-commit hook
+
+Every contributor (human and AI) should install the pre-commit hook so commits with significant changes fail locally if no decision has been logged:
+
+```bash
+pipx install logmind   # or: brew install thrillmot/logmind/logmind
+logmind install-hook   # installs .git/hooks/pre-commit in this clone
+```
+
+The same check runs on every PR via `.github/workflows/logmind-check.yml`, so missing the local hook only delays the failure — it still blocks merge.
 
 ### REQUIREMENT: AI Agents MUST Log All Decisions
 

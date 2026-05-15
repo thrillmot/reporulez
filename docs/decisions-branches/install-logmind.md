@@ -10,3 +10,13 @@
 - Git history will serve as an audit trail for all decisions
 
 ---
+## 2026-05-15 02:24 - Switch logmind-aggregate from direct push to peter-evans/create-pull-request, add logmind-decision-check CI gate
+
+**Reasoning:** The reporulez ruleset on this repo blocks direct pushes to main (no bypass_actors). The default logmind-aggregate workflow pushed straight to main and would silently fail every merge. Per Clud Bug review on PR #4. Also adds a PR-level decision-log enforcement check to mirror the local pre-commit hook.
+
+**Alternatives considered:** Add github-actions[bot] to bypass_actors with bypass_mode=always — weakens security since any workflow could then push to main, Skip aggregation entirely and rely on manual logmind aggregate runs — defeats automation
+
+**Implications:**
+- Each merge of a feature PR now opens/updates an auto-generated PR on branch logmind-aggregate. Concurrency group prevents non-fast-forward races. logmind-decision-check workflow gates every PR on having a decision logged when >20 lines changed.
+
+---
