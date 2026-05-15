@@ -54,6 +54,10 @@ fi
 # Patch required_approving_review_count if --human-review.
 if [[ "$HUMAN_REVIEW" == "true" ]]; then
   info "Patching required_approving_review_count = 1 (human review required)"
+  # Precondition: a pull_request rule must exist, otherwise the patch silently no-ops
+  # and we'd ship a ruleset that doesn't actually require a human approval.
+  echo "$RULESET_JSON" | jq -e '.rules | any(.type == "pull_request")' >/dev/null \
+    || die "--human-review requested but ruleset has no pull_request rule"
   RULESET_JSON="$(echo "$RULESET_JSON" | jq '
     (.rules[] | select(.type == "pull_request") | .parameters.required_approving_review_count) = 1
   ')"
@@ -71,7 +75,7 @@ gh api --method PATCH "repos/$REPO" --silent \
   -f squash_merge_commit_message=PR_BODY
 
 # 2. Apply ruleset. If one with the same name exists, PATCH it. Otherwise POST.
-EXISTING_ID="$(gh api "repos/$REPO/rulesets" \
+EXISTING_ID="$(gh api --paginate "repos/$REPO/rulesets" \
   | jq -r --arg name "$RULESET_NAME" '.[] | select(.name == $name) | .id' \
   | head -n1)"
 

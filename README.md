@@ -3,9 +3,25 @@
 Drop-in GitHub repository rulesets tuned for AI-driven development.
 
 The goal: let an AI agent branch → push → open a PR → wait for checks → merge, without
-bypassing safety. Force pushes and default-branch deletions are blocked, every PR is
-reviewed (by Copilot or an external AI reviewer), every review thread must be resolved,
-and all required status checks must pass before merge. Optionally require a human approval.
+bypassing safety.
+
+**What the ruleset alone enforces (always on):** PRs are required (no direct pushes to
+the default branch), force pushes and default-branch deletions are blocked, linear history
+required, squash-only merges, stale reviews dismissed on push, last-push approval required,
+**any** review thread that gets created must be resolved before merge.
+
+**What it does *not* enforce until you configure more:** that a review actually happens,
+and that CI checks pass. The `copilot` variant adds GitHub Copilot auto-review (advisory
+comments) so threads get created on every PR. The `external` variant assumes you've
+installed a non-Copilot AI reviewer App that does the same — without one, the
+thread-resolution gate has nothing to gate on. Status checks: the ruleset includes a
+`required_status_checks` rule but ships it with an **empty list**, because we can't know
+your CI workflow names — you have to add them after install. Until you do (and until your
+AI reviewer is installed for the `external` variant), the structural rules above are the
+only merge gates, and an empty PR can be self-merged.
+
+The `--human-review` flag layers on a required human approval if you want a person in the
+loop as well.
 
 ## Quickstart
 
